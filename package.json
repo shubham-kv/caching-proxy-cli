@@ -1,0 +1,41 @@
+{
+  "name": "@shubhamkv/caching-proxy-cli",
+  "description": "",
+  "version": "0.0.0-dev",
+  "author": "Shubham Vishwakarma",
+  "main": "dist/index.js",
+  "scripts": {
+    "prebuild": "rimraf dist",
+    "build": "tsc -p ./tsconfig.build.json",
+    "postbuild": "if [ \"$(uname -s)\" = \"Darwin\" ] || [ \"$(uname -s)\" = \"Linux\" ]; then chmod +x dist/index.js; fi",
+    "local-build": "npm run build && npm link",
+    "test": "vitest run",
+    "test:watch": "vitest --watch",
+    "test:cov": "vitest run --silent --coverage"
+  },
+  "bin": {
+    "caching-proxy": "dist/index.js"
+  },
+  "keywords": [
+    "caching-proxy",
+    "nodejs"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.13.10",
+    "@types/supertest": "^6.0.2",
+    "@vitest/coverage-v8": "^3.0.8",
+    "rimraf": "^6.0.1",
+    "supertest": "^7.0.0",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.8"
+  },
+  "dependencies": {
+    "@commander-js/extra-typings": "^13.1.0",
+    "axios": "^1.8.2",
+    "commander": "^13.1.0",
+    "express": "^4.21.2"
+  }
+}
