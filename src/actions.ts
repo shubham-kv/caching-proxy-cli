@@ -2,17 +2,20 @@ import path from "path";
 import { createWriteStream, existsSync } from "fs";
 import { mkdir } from "fs/promises";
 import axios, { AxiosError, AxiosResponse } from "axios";
-
 import { Command } from "@commander-js/extra-typings";
 
 import { app } from "./app";
-import { cacheMiddleware, fileCacheMiddleware } from "./middlewares";
+import { setupCacheMiddleware, fileCacheMiddleware } from "./middlewares";
+import { CacheRecord } from "./types";
 
 type StartCommand = Command<[string], { port: number }, {}>;
 
 export function startServer(this: StartCommand) {
   const [origin] = this.processedArgs;
   const { port } = this.opts();
+
+  const cache: CacheRecord = {};
+  const cacheMiddleware = setupCacheMiddleware(cache);
 
   const axiosInstance = axios.create({ baseURL: origin });
 
@@ -85,8 +88,24 @@ export function startServer(this: StartCommand) {
           .status(upstreamResponse.status)
           .sendFile(cacheFilePath);
       });
+    } else if (
+      contentType.startsWith("application/json") ||
+      contentType.startsWith("application/xml")
+    ) {
+      const upstream = upstreamResponse.data;
+      const buffers: Buffer[] = [];
+
+      upstream.on("data", (chunk: Buffer) => {
+        buffers.push(chunk);
+      });
+
+      upstream.on("end", () => {
+        const data = Buffer.concat(buffers);
+        cache[req.path] = { contentType, data };
+        res.setHeaders(headers).status(upstreamResponse.status).send(data);
+      });
     } else {
-      throw new Error('Yet to implement')
+      throw new Error("Yet to implement");
     }
   });
 

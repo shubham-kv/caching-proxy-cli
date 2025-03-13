@@ -2,24 +2,29 @@ import { NextFunction, Request, Response } from "express";
 import path from "path";
 import { existsSync } from "fs";
 import { readFile } from "fs/promises";
+import { CacheRecord } from "./types";
 
-export const cache: Record<string, any> = {};
+export function setupCacheMiddleware(cache: CacheRecord) {
+  return function cacheMiddleware(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
+    const cacheKey = req.path;
 
-export function cacheMiddleware(
-  req: Request,
-  res: Response,
-  next: NextFunction
-) {
-  const cacheKey = req.path;
+    if (cacheKey in cache) {
+      const cachedResponse = cache[cacheKey];
 
-  if (cacheKey in cache) {
-    const cachedResponse = cache[cacheKey];
-    res.setHeader("X-Cache", "HIT");
-    res.json(cachedResponse);
-    return;
-  }
+      const headers = new Headers();
+      headers.set("X-Cache", "HIT");
+      headers.set("Content-Type", cachedResponse.contentType);
 
-  next();
+      res.setHeaders(headers).send(cachedResponse.data);
+      return;
+    }
+
+    next();
+  };
 }
 
 export async function fileCacheMiddleware(
