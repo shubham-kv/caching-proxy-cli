@@ -4,9 +4,9 @@ import { mkdir } from "fs/promises";
 import axios, { AxiosError, AxiosResponse } from "axios";
 import { Command } from "@commander-js/extra-typings";
 
-import { app } from "./app";
-import { setupCacheMiddleware, readFileCache } from "./middlewares";
-import { CacheRecord } from "./types";
+import { app } from "../app";
+import { setupCacheMiddleware, readFileCache } from "../middlewares";
+import { CacheRecord } from "../types";
 
 type StartCommand = Command<[string], { port: number }, {}>;
 
@@ -16,7 +16,6 @@ export function startServer(this: StartCommand) {
 
   const cache: CacheRecord = {};
   const cacheMiddleware = setupCacheMiddleware(cache);
-
   const axiosInstance = axios.create({ baseURL: origin });
 
   app.get("*", cacheMiddleware, readFileCache, async (req, res) => {
@@ -59,7 +58,7 @@ export function startServer(this: StartCommand) {
       contentType.startsWith("image/") ||
       contentType.startsWith("audio")
     ) {
-      const cacheFilePath = path.join(__dirname, "../cache", req.path);
+      const cacheFilePath = path.join(__dirname, "../../cache", req.path);
       const parsedPath = path.parse(path.normalize(cacheFilePath));
 
       if (!existsSync(parsedPath.dir)) {
