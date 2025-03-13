@@ -6,7 +6,7 @@ import axios, { AxiosError, AxiosResponse } from "axios";
 import { Command } from "@commander-js/extra-typings";
 
 import { app } from "./app";
-import { cache, cacheMiddleware, fileCacheMiddleware } from "./middlewares";
+import { cacheMiddleware, fileCacheMiddleware } from "./middlewares";
 
 type StartCommand = Command<[string], { port: number }, {}>;
 
@@ -30,10 +30,8 @@ export function startServer(this: StartCommand) {
       if (e instanceof AxiosError) {
         if (e.response) {
           res.setHeader("X-Cache", "MISS");
-          res.status(e.response.status).send("Bad Request");
+          res.sendStatus(e.response.status);
           return;
-        } else if (e.request) {
-        } else {
         }
       }
 
@@ -41,17 +39,15 @@ export function startServer(this: StartCommand) {
       return;
     }
 
-    // ** 2. Set the response headers
-    const contentType = upstreamResponse.headers["content-type"] as string;
-
+    // ** 2. Build the response headers
     const headers = new Headers();
     Object.entries(upstreamResponse.headers).forEach(([header, value]) => {
       headers.set(header, value);
     });
     headers.set("X-Cache", "MISS");
-    res.setHeaders(headers);
 
-    // ** 3. Cache upstream response & send back response to client with X-Cache MISS header
+    // ** 3. Cache & send back response
+    const contentType = upstreamResponse.headers["content-type"] as string;
     const pathHasExtension = path.extname(req.path);
 
     if (
@@ -84,7 +80,10 @@ export function startServer(this: StartCommand) {
       });
 
       writeStream.on("finish", () => {
-        res.status(upstreamResponse.status).sendFile(cacheFilePath);
+        res
+          .setHeaders(headers)
+          .status(upstreamResponse.status)
+          .sendFile(cacheFilePath);
       });
     } else {
       throw new Error('Yet to implement')
