@@ -1,7 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import path from "path";
 import { existsSync } from "fs";
-import { readFile } from "fs/promises";
 import { CacheRecord } from "./types";
 
 export function setupCacheMiddleware(cache: CacheRecord) {
@@ -27,16 +26,16 @@ export function setupCacheMiddleware(cache: CacheRecord) {
   };
 }
 
-export async function fileCacheMiddleware(
+export async function readFileCache(
   req: Request,
   res: Response,
   next: NextFunction
 ) {
-  const cachedFilePath = path.join(__dirname, "../cache", req.path);
+  const hasExtension = !!path.extname(req.path);
+  const cachePath = path.join(__dirname, "../cache", req.path);
 
-  if (existsSync(cachedFilePath)) {
-    const data = await readFile(cachedFilePath, "utf-8");
-    res.setHeader("X-Cache", "HIT").status(200).send(data);
+  if (hasExtension && existsSync(cachePath)) {
+    res.setHeader("X-Cache", "HIT").status(200).sendFile(cachePath);
     return;
   }
 

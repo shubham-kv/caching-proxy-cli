@@ -5,7 +5,7 @@ import axios, { AxiosError, AxiosResponse } from "axios";
 import { Command } from "@commander-js/extra-typings";
 
 import { app } from "./app";
-import { setupCacheMiddleware, fileCacheMiddleware } from "./middlewares";
+import { setupCacheMiddleware, readFileCache } from "./middlewares";
 import { CacheRecord } from "./types";
 
 type StartCommand = Command<[string], { port: number }, {}>;
@@ -19,7 +19,7 @@ export function startServer(this: StartCommand) {
 
   const axiosInstance = axios.create({ baseURL: origin });
 
-  app.get("*", cacheMiddleware, fileCacheMiddleware, async (req, res) => {
+  app.get("*", cacheMiddleware, readFileCache, async (req, res) => {
     // ** 1. Get upstream response
     let upstreamResponse: AxiosResponse<any, any>;
     try {
