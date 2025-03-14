@@ -3,11 +3,11 @@ import { createWriteStream, existsSync } from "fs";
 import { mkdir } from "fs/promises";
 import axios, { AxiosError, AxiosResponse } from "axios";
 import { Command } from "@commander-js/extra-typings";
+import mime from "mime";
 
 import { app } from "../app";
-import { setupCacheMiddleware, readFileCache } from "../middlewares";
+import { readFileCache } from "../middlewares";
 import { logger } from "../logger";
-import { CacheRecord } from "../types";
 
 type StartCommand = Command<[string], { port: number }, {}>;
 
@@ -15,11 +15,9 @@ export function startServer(this: StartCommand) {
   const [origin] = this.processedArgs;
   const { port } = this.opts();
 
-  const cache: CacheRecord = {};
-  const cacheMiddleware = setupCacheMiddleware(cache);
   const axiosInstance = axios.create({ baseURL: origin });
 
-  app.get("*", cacheMiddleware, readFileCache, async (req, res) => {
+  app.get("*", readFileCache, async (req, res) => {
     // ** 1. Get upstream response
     let upstreamResponse: AxiosResponse<any, any>;
     try {
@@ -56,62 +54,42 @@ export function startServer(this: StartCommand) {
 
     // ** 3. Cache & send back response
     const contentType = upstreamResponse.headers["content-type"] as string;
-    const pathHasExtension = path.extname(req.path);
+    const extname = path.extname(req.path);
+    const fileExtension = extname ? extname : mime.extension(contentType);
 
-    if (
-      pathHasExtension ||
-      contentType.startsWith("text/") ||
-      contentType.startsWith("image/") ||
-      contentType.startsWith("audio")
-    ) {
-      const cacheFilePath = path.join(__dirname, "../../cache", req.path);
-      const parsedPath = path.parse(path.normalize(cacheFilePath));
+    const cacheFilePath = path.join(
+      __dirname,
+      "../../cache",
+      decodeURIComponent(req.path) + (!extname ? "/index." + fileExtension : "")
+    );
+    const parsedPath = path.parse(path.normalize(cacheFilePath));
 
-      if (!existsSync(parsedPath.dir)) {
-        try {
-          await mkdir(parsedPath.dir, { recursive: true });
-        } catch (e) {
-          logger.info(`Failed to create cache directory '${parsedPath.dir}'`);
-          logger.debug(e);
-          res.sendStatus(500);
-          return;
-        }
-      }
-
-      const writeStream = createWriteStream(cacheFilePath, "utf-8");
-      upstreamResponse.data.pipe(writeStream);
-
-      writeStream.on("error", (e) => {
-        logger.info("Received an error while streaming the response");
+    if (!existsSync(parsedPath.dir)) {
+      try {
+        await mkdir(parsedPath.dir, { recursive: true });
+      } catch (e) {
+        logger.info(`Failed to create cache directory '${parsedPath.dir}'`);
         logger.debug(e);
-        res.status(500).send("Something went wrong");
-      });
-
-      writeStream.on("finish", () => {
-        res
-          .setHeaders(headers)
-          .status(upstreamResponse.status)
-          .sendFile(cacheFilePath);
-      });
-    } else if (
-      contentType.startsWith("application/json") ||
-      contentType.startsWith("application/xml")
-    ) {
-      const upstream = upstreamResponse.data;
-      const buffers: Buffer[] = [];
-
-      upstream.on("data", (chunk: Buffer) => {
-        buffers.push(chunk);
-      });
-
-      upstream.on("end", () => {
-        const data = Buffer.concat(buffers);
-        cache[req.path] = { contentType, data };
-        res.setHeaders(headers).status(upstreamResponse.status).send(data);
-      });
-    } else {
-      throw new Error("Yet to implement");
+        res.sendStatus(500);
+        return;
+      }
     }
+
+    const writeStream = createWriteStream(cacheFilePath);
+    upstreamResponse.data.pipe(writeStream);
+
+    writeStream.on("error", (e) => {
+      logger.info("Received an error while streaming the response");
+      logger.debug(e);
+      res.status(500).send("Something went wrong");
+    });
+
+    writeStream.on("finish", () => {
+      res
+        .setHeaders(headers)
+        .status(upstreamResponse.status)
+        .sendFile(cacheFilePath);
+    });
   });
 
   app.listen(port, (e) => {
