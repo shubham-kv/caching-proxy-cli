@@ -6,6 +6,7 @@ import { Command } from "@commander-js/extra-typings";
 
 import { app } from "../app";
 import { setupCacheMiddleware, readFileCache } from "../middlewares";
+import { logger } from "../logger";
 import { CacheRecord } from "../types";
 
 type StartCommand = Command<[string], { port: number }, {}>;
@@ -25,19 +26,24 @@ export function startServer(this: StartCommand) {
       upstreamResponse = await axiosInstance.get(req.path, {
         responseType: "stream",
       });
-    } catch (e) {
-      console.error("Something went wrong");
-      console.log(e);
+    } catch (e: any) {
+      const err = `${e.code}${e.message ? ": " + e.message : ""}`;
+      logger.debug(e);
 
       if (e instanceof AxiosError) {
         if (e.response) {
-          res.setHeader("X-Cache", "MISS");
+          logger.error(`Received '${err}' from origin server\n`);
           res.sendStatus(e.response.status);
+          return;
+        } else if (e.request) {
+          logger.error(`Request failed with '${err}'\n`);
+          res.sendStatus(502);
           return;
         }
       }
 
-      res.status(500).send("Something went wrong");
+      logger.error("Something went wrong");
+      res.sendStatus(500);
       return;
     }
 
@@ -65,9 +71,9 @@ export function startServer(this: StartCommand) {
         try {
           await mkdir(parsedPath.dir, { recursive: true });
         } catch (e) {
-          console.log(`Failed to create cache directory '${parsedPath.dir}'`);
-          console.error(e);
-          res.status(500).send("Something went wrong");
+          logger.info(`Failed to create cache directory '${parsedPath.dir}'`);
+          logger.debug(e);
+          res.sendStatus(500);
           return;
         }
       }
@@ -76,8 +82,8 @@ export function startServer(this: StartCommand) {
       upstreamResponse.data.pipe(writeStream);
 
       writeStream.on("error", (e) => {
-        console.error("Received an error while streaming the response");
-        console.error(e);
+        logger.info("Received an error while streaming the response");
+        logger.debug(e);
         res.status(500).send("Something went wrong");
       });
 
@@ -110,9 +116,9 @@ export function startServer(this: StartCommand) {
 
   app.listen(port, (e) => {
     if (e) {
-      console.error(e);
+      logger.error(e);
     } else {
-      console.log(`Caching proxy running on http://localhost:${port}`);
+      logger.info(`Caching proxy running on http://localhost:${port}/\n`);
     }
   });
 }
