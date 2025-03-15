@@ -14,7 +14,7 @@ describe("caching-proxy-cli", () => {
 
     beforeAll(async () => {
       childProcess = spawn("ts-node", [
-        path.join(process.cwd(), "src"),
+        path.join(process.cwd(), "src/cli.ts"),
         "start",
         originServer,
         "-p",

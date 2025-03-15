@@ -3,7 +3,7 @@
   "description": "",
   "version": "0.0.0-dev",
   "author": "Shubham Vishwakarma",
-  "main": "dist/index.js",
+  "main": "dist/cli.js",
   "scripts": {
     "prebuild": "rimraf dist",
     "build": "tsc -p ./tsconfig.build.json",
@@ -14,7 +14,7 @@
     "test:cov": "vitest run --silent --coverage"
   },
   "bin": {
-    "caching-proxy": "dist/index.js"
+    "caching-proxy": "dist/cli.js"
   },
   "keywords": [
     "caching-proxy",

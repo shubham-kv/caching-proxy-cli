@@ -1,23 +1,38 @@
+import express from "express";
+
 import path from "path";
+import mime from "mime";
 import { createWriteStream, existsSync } from "fs";
 import { mkdir } from "fs/promises";
 import axios, { AxiosError, AxiosResponse } from "axios";
-import { Command } from "@commander-js/extra-typings";
-import mime from "mime";
 
-import { app } from "../app";
-import { readFileCache } from "../middlewares";
-import { logger } from "../logger";
+import { getReadFileCacheMiddleware } from "./middlewares";
+import { logger } from "./logger";
 
-type StartCommand = Command<[string], { port: number }, {}>;
+type ProxyOptions = {
+  port: number;
+  origin: string;
+  cacheDirectory: string;
+};
 
-export function startServer(this: StartCommand) {
-  const [origin] = this.processedArgs;
-  const { port } = this.opts();
-
+export function configureAndStartCacheProxy({
+  origin,
+  port,
+  cacheDirectory,
+}: ProxyOptions) {
   const axiosInstance = axios.create({ baseURL: origin });
 
-  app.get("*", readFileCache, async (req, res) => {
+  const cacheProxy = express();
+  const readFileCache = getReadFileCacheMiddleware(cacheDirectory);
+
+  cacheProxy.disable("x-powered-by");
+
+  cacheProxy.use((req, _, next) => {
+    logger.info(`${req.method} ${req.url}`);
+    next();
+  });
+
+  cacheProxy.get("*", readFileCache, async (req, res) => {
     // ** 1. Get upstream response
     let upstreamResponse: AxiosResponse<any, any>;
     try {
@@ -55,12 +70,11 @@ export function startServer(this: StartCommand) {
     // ** 3. Cache & send back response
     const contentType = upstreamResponse.headers["content-type"] as string;
     const extname = path.extname(req.path);
-    const fileExtension = extname ? extname : mime.extension(contentType);
 
     const cacheFilePath = path.join(
-      __dirname,
-      "../../cache",
-      decodeURIComponent(req.path) + (!extname ? "/index." + fileExtension : "")
+      cacheDirectory,
+      decodeURIComponent(req.path),
+      !extname ? `/index.${mime.extension(contentType)}` : ""
     );
     const parsedPath = path.parse(path.normalize(cacheFilePath));
 
@@ -92,7 +106,7 @@ export function startServer(this: StartCommand) {
     });
   });
 
-  app.listen(port, (e) => {
+  cacheProxy.listen(port, (e) => {
     if (e) {
       logger.error(e);
     } else {
