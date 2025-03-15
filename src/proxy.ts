@@ -71,6 +71,12 @@ export function configureAndStartCacheProxy({
     const contentType = upstreamResponse.headers["content-type"] as string;
     const extname = path.extname(req.path);
 
+    if (!contentType) {
+      logger.error(`No Content-Type header from origin server`);
+      res.sendStatus(502);
+      return;
+    }
+
     const cacheFilePath = path.join(
       cacheDirectory,
       decodeURIComponent(req.path),
