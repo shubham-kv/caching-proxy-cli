@@ -13,27 +13,43 @@ export function getReadFileCacheMiddleware(cacheDirectory: string) {
   ) {
     const decodedReqPath = decodeURIComponent(req.path);
     const extname = path.extname(decodedReqPath);
-    let cacheFilePath = path.join(cacheDirectory, decodedReqPath);
+    const cachePath = path.join(cacheDirectory, decodedReqPath);
 
-    if (!extname) {
-      try {
-        const fileNames = await readdir(cacheFilePath);
-        const indexFileName = fileNames.find((file) =>
-          file.startsWith("index")
-        );
+    if (existsSync(cachePath)) {
+      if (extname) {
+        res.setHeader("X-Cache", "HIT").status(200).sendFile(cachePath);
+        return;
+      } else {
+        let cacheDirFileNames: string[] = [];
+        let cachePathWithExt: string | undefined = undefined;
 
-        if (indexFileName) {
-          cacheFilePath = path.join(cacheFilePath, indexFileName);
+        try {
+          cacheDirFileNames = await readdir(cachePath);
+        } catch (e) {
+          logger.error(
+            "Something went wrong while reading the cache directory"
+          );
+          logger.debug(e);
         }
-      } catch (e) {
-        logger.error("Something went wrong while reading the cache directory");
-        logger.debug(e);
-      }
-    }
 
-    if (existsSync(cacheFilePath)) {
-      res.setHeader("X-Cache", "HIT").status(200).sendFile(cacheFilePath);
-      return;
+        if (cacheDirFileNames.length > 0) {
+          const indexFileName = cacheDirFileNames.find((file) =>
+            file.startsWith("index")
+          );
+
+          if (indexFileName) {
+            cachePathWithExt = path.join(cachePath, indexFileName);
+          }
+        }
+
+        if (cachePathWithExt && existsSync(cachePathWithExt)) {
+          res
+            .setHeader("X-Cache", "HIT")
+            .status(200)
+            .sendFile(cachePathWithExt);
+          return;
+        }
+      }
     }
 
     next();
