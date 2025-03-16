@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import path from "path";
 import { ChildProcessWithoutNullStreams, spawn } from "child_process";
+import { setupMockServer } from "./setup";
 import { StartCommandOptions } from "./types";
 
 describe("caching-proxy-cli", () => {
@@ -57,5 +58,60 @@ describe("caching-proxy-cli", () => {
         });
       }
     );
+  });
+
+  describe("start command", () => {
+    const originHost = "localhost";
+    const originPort = 3000;
+    const originHref = `http://${originHost}:${originPort}`;
+    const proxyServerHost = "localhost";
+    const proxyPort = "4000";
+    const proxyHref = `http://${proxyServerHost}:${proxyPort}`;
+
+    let proxyChildProcess: ChildProcessWithoutNullStreams;
+
+    setupMockServer({ host: originHost, port: originPort });
+
+    afterAll(() => {
+      const res = proxyChildProcess?.kill("SIGTERM");
+      console.log(
+        `Kill ${res ? "succeeded" : "failed"} for the spawned process`
+      );
+    });
+
+    describe("when executed with valid origin & port", () => {
+      let stdoutData: string;
+
+      beforeAll(async () => {
+        proxyChildProcess = spawn("ts-node", [
+          path.join(__dirname, "../src/cli.ts"),
+          "start",
+          originHref,
+          "-p",
+          proxyPort,
+        ]);
+
+        stdoutData = await new Promise<string>((resolve, reject) => {
+          const timeout = 5 * 1000;
+
+          proxyChildProcess.stdout.once("data", (data: any) => {
+            resolve(data.toString());
+          });
+
+          setTimeout(() => {
+            const err = new Error(
+              `Failed to receive proxyChildProcess.stdout 'data' event within ${
+                timeout / 1000
+              }s`
+            );
+            reject(err);
+          }, timeout);
+        });
+      });
+
+      test("proxy server should start", async ({ expect }) => {
+        expect(stdoutData).toMatch(/caching proxy running/gi);
+      });
+    });
   });
 });
