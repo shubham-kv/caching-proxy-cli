@@ -20,7 +20,6 @@ program
   .requiredOption(
     "-p, --port <port>",
     "Port number on which this server will run",
-    parseInt
   )
   .action(startServer);
 

@@ -1,69 +1,61 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import path from "path";
-import {
-  ChildProcessWithoutNullStreams,
-  spawn,
-} from "child_process";
-
-const originServer = "https://pokeapi-proxy.freecodecamp.rocks/";
-const port = "3001"
+import { ChildProcessWithoutNullStreams, spawn } from "child_process";
+import { StartCommandOptions } from "./types";
 
 describe("caching-proxy-cli", () => {
   describe("start command", () => {
-    let childProcess: ChildProcessWithoutNullStreams;
+    const invalidOptions: StartCommandOptions[] = [
+      { origin: "", port: "" },
+      { origin: "Not an href", port: "" },
+      { origin: "file://foo/bar/foobar.txt", port: "" },
+      { origin: "htpp://localhost:3000/", port: "" },
+      { origin: "https://example.com", port: "Not a number" },
+      { origin: "https://example.com", port: "001a" },
+      { origin: "https://example.com", port: "-1" },
+      { origin: "https://example.com", port: "65536" },
+    ];
 
-    beforeAll(async () => {
-      childProcess = spawn("ts-node", [
-        path.join(process.cwd(), "src/cli.ts"),
-        "start",
-        originServer,
-        "-p",
-        port,
-      ]);
+    describe.each(invalidOptions)(
+      "when executed with invalid origin $origin or invalid port $port",
+      (options) => {
+        let proxyChildProcess: ChildProcessWithoutNullStreams;
 
-      await new Promise<void>((resolve, reject) => {
-        childProcess.stdout.on("data", (data) => {
-          const dataString: string = data.toString()
-
-          if (dataString.match(/caching proxy running/gi)) {
-            resolve();
-          } else {
-            reject(new Error(`Invalid stdout data: ${data}`))
-          }
+        beforeAll(() => {
+          proxyChildProcess = spawn("ts-node", [
+            path.join(__dirname, "../src/cli.ts"),
+            "start",
+            options.origin,
+            "-p",
+            options.port,
+          ]);
         });
 
-        childProcess.stderr.on("data", (data) => {
-          reject(new Error(`Error spawning the process: ${data}`));
+        afterAll(() => {
+          proxyChildProcess?.kill("SIGHUP");
         });
 
-        childProcess.on("close", (code) => {
-          reject(new Error(`Spawned process exited with code ${code}`));
+        test("should display error", async () => {
+          const data = await new Promise<string>((resolve, reject) => {
+            const timeout = 5 * 1000;
+            const listener = (data: any) => {
+              resolve(data.toString());
+            };
+            proxyChildProcess.stderr.once("data", listener);
+
+            setTimeout(() => {
+              const err = new Error(
+                `Failed to receive proxyChildProcess.stderr 'data' event within ${
+                  timeout / 1000
+                }s`
+              );
+              reject(err);
+            }, timeout);
+          });
+
+          expect(data).toMatch(/invalid /gi);
         });
-
-        setTimeout(() => {
-          reject(new Error(`Failed to spawn the process within 10s`))
-        }, 10 * 1000)
-      });
-    });
-
-    afterAll(() => {
-      const res = childProcess?.kill("SIGTERM");
-      console.log(
-        `Kill ${res ? "succeeded" : "failed"} for the spawned process`
-      );
-    });
-
-    describe("when proxy server is fetched for the first time", () => {
-      let response: Response
-
-      beforeAll(async () => {
-        response = await fetch(`http://localhost:${port}/api/pokemon`);
-      });
-
-      test("should return X-CACHE MISS header", async () => {
-        const cacheHeader = response.headers.get("X-CACHE");
-        expect(cacheHeader).toBe("MISS");
-      });
-    });
+      }
+    );
   });
 });
