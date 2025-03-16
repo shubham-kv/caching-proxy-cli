@@ -1,14 +1,13 @@
 {
   "name": "@shubhamkv/caching-proxy-cli",
-  "description": "",
+  "description": "Caching proxy CLI tool",
   "version": "0.0.0-dev",
   "author": "Shubham Vishwakarma",
   "main": "dist/cli.js",
   "scripts": {
     "prebuild": "rimraf dist",
     "build": "tsc -p ./tsconfig.build.json",
-    "postbuild": "if [ \"$(uname -s)\" = \"Darwin\" ] || [ \"$(uname -s)\" = \"Linux\" ]; then chmod +x dist/index.js; fi",
-    "local-build": "npm run build && npm link",
+    "postbuild": "if [ \"$(uname -s)\" = \"Darwin\" ] || [ \"$(uname -s)\" = \"Linux\" ]; then chmod +x dist/cli.js; fi",
     "test": "vitest run",
     "test:watch": "vitest --watch",
     "test:cov": "vitest run --silent --coverage"
@@ -39,5 +38,9 @@
     "express": "^4.21.2",
     "pino": "^9.6.0",
     "pino-pretty": "^13.0.0"
-  }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ]
 }
