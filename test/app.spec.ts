@@ -1,11 +1,17 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import path from "path";
+import { existsSync, rmSync } from "fs";
 import { ChildProcessWithoutNullStreams, spawn } from "child_process";
+import axios, { AxiosInstance, AxiosResponse } from "axios";
+
+import { sampleData } from "./__fixtures__/sample-data";
 import { setupMockServer } from "./setup";
-import { StartCommandOptions } from "./types";
+import { testCacheDirPath } from "../src/constants";
+
+import { ReqResConfig, StartCommandOptions } from "./types";
 
 describe("caching-proxy-cli", () => {
-  describe("start command", () => {
+  describe("start command with invalid options", () => {
     const invalidOptions: StartCommandOptions[] = [
       { origin: "", port: "" },
       { origin: "Not an href", port: "" },
@@ -60,7 +66,7 @@ describe("caching-proxy-cli", () => {
     );
   });
 
-  describe("start command", () => {
+  describe("start command with valid options", () => {
     const originHost = "localhost";
     const originPort = 3000;
     const originHref = `http://${originHost}:${originPort}`;
@@ -113,5 +119,63 @@ describe("caching-proxy-cli", () => {
         expect(stdoutData).toMatch(/caching proxy running/gi);
       });
     });
+
+    const reqResConfigs: ReqResConfig[] = [
+      {
+        requestPath: "/api/sample-json",
+        responseContentType: "application/json",
+        responseData: sampleData.json,
+      },
+      {
+        requestPath: "/api/sample-xml",
+        responseContentType: "application/xml",
+        responseData: sampleData.xml,
+      },
+    ];
+
+    describe.each(reqResConfigs)(
+      "when proxy server is fetched for $responseContentType response content type API",
+      (config) => {
+        let axiosInstance: AxiosInstance;
+
+        beforeAll(() => {
+          axiosInstance = axios.create({
+            baseURL: proxyHref,
+          });
+
+          if (existsSync(testCacheDirPath)) {
+            rmSync(testCacheDirPath, { force: true, recursive: true });
+          }
+        });
+
+        afterAll(() => {
+          if (existsSync(testCacheDirPath)) {
+            rmSync(testCacheDirPath, { force: true, recursive: true });
+          }
+        });
+
+        describe("when fetched for the first time", () => {
+          let response: AxiosResponse<any, any>;
+
+          beforeAll(async () => {
+            response = await axiosInstance.get(config.requestPath);
+          });
+
+          test("should return correct response", () => {
+            if (typeof response.data === "object") {
+              expect(response.data).toMatchObject(config.responseData);
+            } else {
+              expect(response.data).toBe(config.responseData);
+            }
+          });
+
+          test("should have X-Cache header set to 'MISS'", () => {
+            const xCacheHeader =
+              response.headers["X-Cache"] || response.headers["x-cache"];
+            expect(xCacheHeader).toBe("MISS");
+          });
+        });
+      }
+    );
   });
 });
