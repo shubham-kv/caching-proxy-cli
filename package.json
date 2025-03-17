@@ -1,6 +1,6 @@
 {
   "name": "@shubhamkv/caching-proxy-cli",
-  "description": "Caching proxy CLI tool",
+  "description": "Caching Proxy CLI tool",
   "version": "0.0.0-dev",
   "author": "Shubham Vishwakarma",
   "main": "dist/cli.js",
@@ -26,6 +26,7 @@
     "@types/supertest": "^6.0.2",
     "@vitest/coverage-v8": "^3.0.8",
     "rimraf": "^6.0.1",
+    "semantic-release": "^24.2.3",
     "supertest": "^7.0.0",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.8.2",
@@ -41,6 +42,10 @@
   },
   "files": [
     "dist",
+    "LICENSE",
     "README.md"
-  ]
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
 }
