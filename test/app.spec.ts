@@ -131,6 +131,26 @@ describe("caching-proxy-cli", () => {
         responseContentType: "application/xml",
         responseData: sampleData.xml,
       },
+      {
+        requestPath: "/api/sample-plain-txt",
+        responseContentType: "text/plain",
+        responseData: sampleData.plainTxt,
+      },
+      {
+        requestPath: "/public/sample-html",
+        responseContentType: "text/html",
+        responseData: sampleData.html,
+      },
+      {
+        requestPath: "/public/sample-styles.css",
+        responseContentType: "text/css",
+        responseData: sampleData.css
+      },
+      {
+        requestPath: "/public/sample-script",
+        responseContentType: "application/javascript",
+        responseData: sampleData.javascript
+      },
     ];
 
     describe.each(reqResConfigs)(
