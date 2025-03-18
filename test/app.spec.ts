@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import path from "path";
 import { existsSync, rmSync } from "fs";
-import { ChildProcessWithoutNullStreams, spawn } from "child_process";
+import { ChildProcessWithoutNullStreams, spawn, spawnSync } from "child_process";
 import axios, { AxiosInstance, AxiosResponse } from "axios";
 
 import { sampleData } from "./__fixtures__/sample-data";
@@ -11,6 +11,46 @@ import { testCacheDirPath } from "../src/constants";
 import { ReqResConfig, StartCommandOptions } from "./types";
 
 describe("caching-proxy-cli", () => {
+  const originHost = "localhost";
+  const originPort = 3000;
+  const originHref = `http://${originHost}:${originPort}`;
+  const proxyServerHost = "localhost";
+  const proxyPort = "4000";
+  const proxyHref = `http://${proxyServerHost}:${proxyPort}`;
+
+  const reqResConfigs: ReqResConfig[] = [
+    {
+      requestPath: "/api/sample-json",
+      responseContentType: "application/json",
+      responseData: sampleData.json,
+    },
+    {
+      requestPath: "/api/sample-xml",
+      responseContentType: "application/xml",
+      responseData: sampleData.xml,
+    },
+    {
+      requestPath: "/api/sample-plain-txt",
+      responseContentType: "text/plain",
+      responseData: sampleData.plainTxt,
+    },
+    {
+      requestPath: "/public/sample-html",
+      responseContentType: "text/html",
+      responseData: sampleData.html,
+    },
+    {
+      requestPath: "/public/sample-styles.css",
+      responseContentType: "text/css",
+      responseData: sampleData.css,
+    },
+    {
+      requestPath: "/public/sample-script",
+      responseContentType: "application/javascript",
+      responseData: sampleData.javascript,
+    },
+  ];
+
   describe("start command with invalid options", () => {
     const invalidOptions: StartCommandOptions[] = [
       { origin: "", port: "" },
@@ -67,13 +107,6 @@ describe("caching-proxy-cli", () => {
   });
 
   describe("start command with valid options", () => {
-    const originHost = "localhost";
-    const originPort = 3000;
-    const originHref = `http://${originHost}:${originPort}`;
-    const proxyServerHost = "localhost";
-    const proxyPort = "4000";
-    const proxyHref = `http://${proxyServerHost}:${proxyPort}`;
-
     let proxyChildProcess: ChildProcessWithoutNullStreams;
 
     setupMockServer({ host: originHost, port: originPort });
@@ -119,39 +152,6 @@ describe("caching-proxy-cli", () => {
         expect(stdoutData).toMatch(/caching proxy running/gi);
       });
     });
-
-    const reqResConfigs: ReqResConfig[] = [
-      {
-        requestPath: "/api/sample-json",
-        responseContentType: "application/json",
-        responseData: sampleData.json,
-      },
-      {
-        requestPath: "/api/sample-xml",
-        responseContentType: "application/xml",
-        responseData: sampleData.xml,
-      },
-      {
-        requestPath: "/api/sample-plain-txt",
-        responseContentType: "text/plain",
-        responseData: sampleData.plainTxt,
-      },
-      {
-        requestPath: "/public/sample-html",
-        responseContentType: "text/html",
-        responseData: sampleData.html,
-      },
-      {
-        requestPath: "/public/sample-styles.css",
-        responseContentType: "text/css",
-        responseData: sampleData.css,
-      },
-      {
-        requestPath: "/public/sample-script",
-        responseContentType: "application/javascript",
-        responseData: sampleData.javascript,
-      },
-    ];
 
     describe.each(reqResConfigs)(
       "when proxy server is fetched for $responseContentType response content type API",
@@ -219,5 +219,80 @@ describe("caching-proxy-cli", () => {
         });
       }
     );
+  });
+
+  describe("'clear-cache' command", () => {
+    let proxyChildProcess: ChildProcessWithoutNullStreams;
+
+    setupMockServer({ host: originHost, port: originPort });
+
+    beforeAll(async () => {
+      proxyChildProcess = spawn("ts-node", [
+        path.join(__dirname, "../src/cli.ts"),
+        "start",
+        originHref,
+        "-p",
+        proxyPort,
+      ]);
+
+      // Wait for the proxy server to start
+      await new Promise<void>((resolve, reject) => {
+        const timeout = 5 * 1000;
+
+        proxyChildProcess.stdout.once("data", (chunk: any) => {
+          const data = chunk.toString();
+
+          if (/caching proxy running/gi.test(data)) {
+            resolve();
+          } else {
+            reject(new Error("Unexpected stdout data"));
+          }
+        });
+
+        setTimeout(() => {
+          const err = new Error(
+            `Failed to receive proxyChildProcess.stdout 'data' event within ${
+              timeout / 1000
+            }s`
+          );
+          reject(err);
+        }, timeout);
+      });
+
+      // Make a request to have something in cache directory to delete
+      const axiosInstance = axios.create({
+        baseURL: proxyHref,
+      });
+
+      try {
+        await axiosInstance.get(reqResConfigs[0].requestPath);
+      } catch (e) {
+        throw e;
+      }
+    });
+
+    afterAll(() => {
+      const res = proxyChildProcess?.kill("SIGTERM");
+      console.log(
+        `Kill ${res ? "succeeded" : "failed"} for the spawned process`
+      );
+    });
+
+    describe("when 'clear-cache' command is executed", () => {
+      let data: string | undefined = undefined
+
+      beforeAll(() => {
+        const buffer = spawnSync("ts-node", [
+          path.join(__dirname, "../src/cli.ts"),
+          "clear-cache",
+        ]);
+
+        data = buffer.stdout.toString()
+      })
+
+      test("should clear the cache directory", () => {
+        expect(data).toMatch(/cleared the cache successfully/gi)
+      });
+    });
   });
 });
