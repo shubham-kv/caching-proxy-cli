@@ -6,18 +6,35 @@ CLI tool to locally cache API responses with file based caching strategy.
 Install the package globally with a node package manager.
 
 ```bash
-npm install --global @shubhamkv/caching-proxy-cli
+npm i --global @shubhamkv/caching-proxy-cli
 ```
 
-## Starting the Proxy Server
+## How to use
 
-Use the `start` command to start the proxy caching server:
+### Starting the server
+
+Use the `start` command to start the proxy caching server, it requires the `url`
+of the origin server and a `port` number for the proxy server:
 
 ```bash
-caching-proxy start http://randomuser.me -p 4000
+caching-proxy start https://example.com -p 4000
+```
+
+This will start the caching proxy server on the specified port & cache the
+responses.
+
+### Stopping the server
+
+Closing the terminal should stop the running proxy server.
+
+### Clearing the proxy cache
+
+Use the `clear-cache` command to clear the entire cache of the proxy server:
+
+```bash
+caching-proxy clear-cache
 ```
 
 ## Credits
 
-Many thanks to [Roadmap.sh | Caching Proxy CLI](https://roadmap.sh/projects/caching-server)
-which sparked the idea for this project.
+Thanks to [Roadmap.sh | Caching Proxy CLI](https://roadmap.sh/projects/caching-server).
