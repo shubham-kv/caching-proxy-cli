@@ -47,6 +47,6 @@ export async function clearCache(this: Command<[], {}, {}>): Promise<void> {
       this.error("Failed to remove the cache directory, try again");
     }
   } else {
-    this.error("Invalid cache directory");
+    this.error("No cache found");
   }
 }
