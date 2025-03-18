@@ -258,17 +258,6 @@ describe("caching-proxy-cli", () => {
           reject(err);
         }, timeout);
       });
-
-      // Make a request to have something in cache directory to delete
-      const axiosInstance = axios.create({
-        baseURL: proxyHref,
-      });
-
-      try {
-        await axiosInstance.get(reqResConfigs[0].requestPath);
-      } catch (e) {
-        throw e;
-      }
     });
 
     afterAll(() => {
@@ -278,10 +267,39 @@ describe("caching-proxy-cli", () => {
       );
     });
 
-    describe("when 'clear-cache' command is executed", () => {
+    describe("when 'clear-cache' command is executed and no cache exists", () => {
       let data: string | undefined = undefined
 
       beforeAll(() => {
+        const buffer = spawnSync("ts-node", [
+          path.join(__dirname, "../src/cli.ts"),
+          "clear-cache",
+        ]);
+
+        data = buffer.stderr.toString()
+      })
+
+      test("should display the 'No cache' message", () => {
+        expect(data).toMatch(/no cache/gi)
+      });
+    });
+
+    describe("when 'clear-cache' command is executed and there's some cache", () => {
+      let data: string | undefined = undefined
+
+      beforeAll(async () => {
+        // Make a request to have something in cache directory to delete
+        const axiosInstance = axios.create({
+          baseURL: proxyHref,
+        });
+
+        try {
+          await axiosInstance.get(reqResConfigs[0].requestPath);
+        } catch (e) {
+          throw e;
+        }
+
+        // Run the clear-cache command
         const buffer = spawnSync("ts-node", [
           path.join(__dirname, "../src/cli.ts"),
           "clear-cache",
