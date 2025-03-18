@@ -65,7 +65,6 @@ export function configureAndStartCacheProxy({
     Object.entries(upstreamResponse.headers).forEach(([header, value]) => {
       headers.set(header, value);
     });
-    headers.set("X-Cache", "MISS");
 
     // ** 3. Cache & send back response
     const contentType = upstreamResponse.headers["content-type"] as string;
@@ -107,6 +106,7 @@ export function configureAndStartCacheProxy({
     writeStream.on("finish", () => {
       res
         .setHeaders(headers)
+        .setHeader("X-Cache", "MISS")
         .status(upstreamResponse.status)
         .sendFile(cacheFilePath);
     });
