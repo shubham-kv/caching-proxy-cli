@@ -3,7 +3,7 @@
 import { Command } from "@commander-js/extra-typings";
 import { description, version } from "../package.json";
 
-import { startServer } from "./actions";
+import { clearCache, startServer } from "./actions";
 
 const program = new Command()
   .name("caching-proxy")
@@ -19,8 +19,13 @@ program
   )
   .requiredOption(
     "-p, --port <port>",
-    "Port number on which this server will run",
+    "Port number on which this server will run"
   )
   .action(startServer);
+
+program
+  .command("clear-cache")
+  .description("Clear the entire cache of the proxy server")
+  .action(clearCache);
 
 program.parse(process.argv);
