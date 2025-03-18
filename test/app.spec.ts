@@ -144,12 +144,12 @@ describe("caching-proxy-cli", () => {
       {
         requestPath: "/public/sample-styles.css",
         responseContentType: "text/css",
-        responseData: sampleData.css
+        responseData: sampleData.css,
       },
       {
         requestPath: "/public/sample-script",
         responseContentType: "application/javascript",
-        responseData: sampleData.javascript
+        responseData: sampleData.javascript,
       },
     ];
 
@@ -193,6 +193,28 @@ describe("caching-proxy-cli", () => {
             const xCacheHeader =
               response.headers["X-Cache"] || response.headers["x-cache"];
             expect(xCacheHeader).toBe("MISS");
+          });
+        });
+
+        describe("when fetched for again for the second time", () => {
+          let response: AxiosResponse<any, any>;
+
+          beforeAll(async () => {
+            response = await axiosInstance.get(config.requestPath);
+          });
+
+          test("should return correct response", () => {
+            if (typeof response.data === "object") {
+              expect(response.data).toMatchObject(config.responseData);
+            } else {
+              expect(response.data).toBe(config.responseData);
+            }
+          });
+
+          test("should have X-Cache header set to 'HIT'", () => {
+            const xCacheHeader =
+              response.headers["X-Cache"] || response.headers["x-cache"];
+            expect(xCacheHeader).toBe("HIT");
           });
         });
       }
